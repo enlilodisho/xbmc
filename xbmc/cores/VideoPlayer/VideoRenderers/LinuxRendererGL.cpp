@@ -231,6 +231,31 @@ bool CLinuxRendererGL::Configure(const VideoPicture &picture, float fps, unsigne
 
   m_srcPrimaries = picture.color_primaries;
   m_toneMap = false;
+  
+  // Check if need to activate HDR display.
+  m_AutoSwitchHDR = CServiceBroker::GetWinSystem()->IsHDRDisplaySettingEnabled();
+  if (m_AutoSwitchHDR)
+  {
+    m_initialHdrEnabled = CServiceBroker::GetWinSystem()->GetOSHDRStatus() == HDR_STATUS::HDR_ON;
+    CLog::LogF(LOGDEBUG, "[HDR] Storing Display HDR state: {}", m_initialHdrEnabled ? "ON" : "OFF");
+    
+    const bool streamIsHDR = (picture.color_primaries == AVCOL_PRI_BT2020) &&
+                              (picture.color_transfer == AVCOL_TRC_SMPTE2084 ||
+                               picture.color_transfer == AVCOL_TRC_ARIB_STD_B67);
+    if (streamIsHDR)
+    {
+      HDR_STATUS hdrStatus = CServiceBroker::GetWinSystem()->GetOSHDRStatus();
+      if (hdrStatus != HDR_STATUS::HDR_ON)
+      {
+        CLog::Log(LOGERROR, "[HDR] HDR Content Detected on HDR Screen - Toggling HDR Display Mode");
+        CServiceBroker::GetWinSystem()->ToggleHDR();
+      }
+      else
+      {
+        CLog::LogF(LOGERROR, "[HDR] HDR Content Detected on HDR Screen - Display HDR mode already set to {}", hdrStatus);
+      }
+    }
+  }
 
   // Calculate the input frame aspect ratio.
   CalculateFrameAspectRatio(picture.iDisplayWidth, picture.iDisplayHeight);
@@ -293,6 +318,7 @@ void CLinuxRendererGL::AddVideoPicture(const VideoPicture &picture, int index)
   buf.loaded = false;
   buf.m_srcPrimaries = picture.color_primaries;
   buf.m_srcColSpace = picture.color_space;
+  buf.m_srcColTransfer = picture.color_transfer;
   buf.m_srcFullRange = picture.color_range == 1;
   buf.m_srcBits = picture.colorBits;
 
@@ -1050,6 +1076,21 @@ void CLinuxRendererGL::UnInit()
   m_fbo.fbo.Cleanup();
   m_bValidated = false;
   m_bConfigured = false;
+  
+  // At playback stop restore the display initial HDR status.
+  bool hdrActive = CServiceBroker::GetWinSystem()->GetOSHDRStatus() == HDR_STATUS::HDR_ON;
+  if (m_AutoSwitchHDR)
+  {
+    if (hdrActive != m_initialHdrEnabled)
+    {
+      CLog::LogF(LOGDEBUG, "[HDR] Restoring {} rendering", m_initialHdrEnabled ? "HDR" : "SDR");
+      CServiceBroker::GetWinSystem()->ToggleHDR();
+    }
+  }
+  else if (hdrActive)
+  {
+    // SetHdrColorSpace(DXGI_COLOR_SPACE_RGB_FULL_G2084_NONE_P2020);
+  }
 }
 
 bool CLinuxRendererGL::Render(unsigned int flags, int renderBuffer)

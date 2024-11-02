@@ -72,6 +72,11 @@ public:
   void OnMove(int x, int y) override;
   void OnChangeScreen(unsigned int screenIdx) override;
   bool HasValidResolution() const;
+  
+  bool IsHDRDisplay() override;
+  HDR_STATUS ToggleHDR() override;
+  HDR_STATUS GetOSHDRStatus() override;
+  CHDRCapabilities GetDisplayHDRCapabilities() const override;
 
   std::string GetClipboardText() override;
 

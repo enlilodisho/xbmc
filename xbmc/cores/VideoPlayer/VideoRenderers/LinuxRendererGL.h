@@ -126,6 +126,11 @@ protected:
 
   struct CYuvPlane;
   struct CPictureBuffer;
+  
+  bool m_AutoSwitchHDR = false;
+  bool m_initialHdrEnabled = false;
+  
+  void ProcessHDR(CPictureBuffer* pb);
 
   void BindPbo(CPictureBuffer& buff);
   void UnBindPbo(CPictureBuffer& buff);
@@ -193,6 +198,7 @@ protected:
 
     AVColorPrimaries m_srcPrimaries;
     AVColorSpace m_srcColSpace;
+    AVColorTransferCharacteristic m_srcColTransfer;
     int m_srcBits = 8;
     int m_srcTextureBits = 8;
     bool m_srcFullRange;

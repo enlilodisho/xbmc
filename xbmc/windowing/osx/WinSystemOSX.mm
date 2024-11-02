@@ -1196,6 +1196,82 @@ bool CWinSystemOSX::HasValidResolution() const
   return m_gfxContext->GetVideoResolution() != RES_INVALID;
 }
 
+#pragma mark - HDR
+
+bool CWinSystemOSX::IsHDRDisplay()
+{
+  // Get the current active screen.
+  NSScreen* currentScreen = nil;
+  if (m_lastDisplayNr < NSScreen.screens.count)
+  {
+    currentScreen = [NSScreen.screens objectAtIndex:m_lastDisplayNr];
+  }
+  if (currentScreen == nil)
+  {
+    return false;
+  }
+  CLog::Log(LOGERROR, "[HDR] MAX EDR VALUE - CURRENT:{}, POTENTIAL:{}", currentScreen.maximumExtendedDynamicRangeColorComponentValue, currentScreen.maximumPotentialExtendedDynamicRangeColorComponentValue); // TODO debug log
+  return currentScreen.maximumPotentialExtendedDynamicRangeColorComponentValue > CGFloat(1.0f);
+}
+
+HDR_STATUS CWinSystemOSX::ToggleHDR()
+{
+  __block HDR_STATUS hdrStatus = HDR_STATUS::HDR_UNSUPPORTED;
+  if (IsHDRDisplay())
+  {
+    hdrStatus = HDR_STATUS::HDR_TOGGLE_FAILED;
+    if (m_glView != nil)
+    {
+      dispatch_sync(dispatch_get_main_queue(), ^{
+        if (m_glView.wantsExtendedDynamicRangeOpenGLSurface)
+        {
+          // HDR is currently ON. Turn it OFF.
+          [m_glView setWantsExtendedDynamicRangeOpenGLSurface:NO];
+          hdrStatus = HDR_STATUS::HDR_OFF;
+        }
+        else
+        {
+          // HDR is currently OFF. Turn it ON.
+          [m_glView setWantsExtendedDynamicRangeOpenGLSurface:YES];
+          hdrStatus = HDR_STATUS::HDR_ON;
+        }
+        CLog::Log(LOGERROR, "[HDR] SET HDR ACTIVE:{}", m_glView.wantsExtendedDynamicRangeOpenGLSurface);
+      });
+    }
+  }
+  return hdrStatus;
+}
+
+HDR_STATUS CWinSystemOSX::GetOSHDRStatus()
+{
+  if (IsHDRDisplay())
+  {
+    __block HDR_STATUS hdrStatus = HDR_STATUS::HDR_UNKNOWN;
+    if (m_glView != nil)
+    {
+      dispatch_sync(dispatch_get_main_queue(), ^{
+        if (m_glView.wantsExtendedDynamicRangeOpenGLSurface == YES)
+          hdrStatus = HDR_STATUS::HDR_ON;
+        else
+          hdrStatus = HDR_STATUS::HDR_OFF;
+      });
+    }
+    return hdrStatus;
+  }
+  return HDR_STATUS::HDR_UNSUPPORTED;
+}
+
+CHDRCapabilities CWinSystemOSX::GetDisplayHDRCapabilities() const
+{
+  CHDRCapabilities caps;
+  // TODO get actual display capabilities
+  caps.SetHDR10();
+  //caps.SetHLG();
+  //caps.SetHDR10Plus();
+  //caps.SetDolbyVision();
+  return caps;
+}
+
 #pragma mark - Window Move
 
 void CWinSystemOSX::OnMove(int x, int y)
